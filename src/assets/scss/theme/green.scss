@@ -131,6 +131,23 @@
                 border-color: var(--g-c-8);
               }
             }
+            .selected {
+              background-color: var(--g-c-5);
+              &:hover{
+                background-color: var(--g-c-5);
+              }
+            }
+          }
+          .show-picture{
+            color: var(--g-fc-1);
+            .card{
+              background-color: var(--g-bgc-3);
+              box-shadow: var(--g-bsc);
+              transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+              &:hover{
+                box-shadow: var(--g-bsc-hover);
+              }
+            }
           }
         }
       }
@@ -139,6 +156,13 @@
   .play{
     background-color: var(--g-bgc-1);
     box-shadow: var(--g-bsc);
+    .el-input{
+      input{
+        background-color: var(--g-bgc-1);
+        border: 1px solid var(--g-bgc-1);
+        color: var(--g-fc-2);
+      }
+    }
     .title{
       color: var(--g-fc-1);
       .right {
@@ -148,6 +172,21 @@
       }
     }
     .box{
+      .title{
+        .right{
+          color: var(--g-fc-2);
+          svg{
+            stroke: var(--g-c-5);
+            stroke-width: 1;
+            fill: none;
+            &:hover{
+              stroke: var(--g-c-8);
+              stroke-width: 1.5;
+              fill: var(--g-c-2);
+            }
+          }
+        }
+      }
       .more{
         span{
           svg{
@@ -204,6 +243,14 @@
             }
             &:hover{
               background-color: var(--g-c-3);
+            }
+          }
+        }
+        .list-channels{
+          .btn{
+            color: var(--g-fc-1);
+            &:hover{
+              text-decoration:underline;
             }
           }
         }
@@ -304,7 +351,20 @@
   // Page of list using table and picture
   .listpage{
     color: var(--g-fc-2);
-    .listpage-header{
+    .listpage-header-divider{
+      background-color: var(--g-bgc-1);
+      .el-divider__text {
+        background-color: var(--g-bgc-2);
+      }
+      .el-button{
+        background-color: var(--g-bgc-2);
+        color: var(--g-fc-2);
+        &:hover{
+          color: var(--g-fc-3)
+        }
+      }
+    }
+    .listpage-header, .toolbar{
       border-bottom-color: var(--g-c-3);
       .btn{
         &:hover{
@@ -400,7 +460,7 @@
       .show-picture{
         color: var(--g-fc-1);
         .card{
-          background-color: var(--g-bgc-1);
+          background-color: var(--g-bgc-3);
           box-shadow: var(--g-bsc);
           transition: all 0.3s cubic-bezier(.25,.8,.25,1);
           &:hover{

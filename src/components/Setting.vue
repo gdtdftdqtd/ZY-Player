@@ -5,22 +5,8 @@
       <div class="info">
         <a @click="linkOpen('http://zyplayer.fun/')">官网</a>
         <a @click="linkOpen('https://github.com/Hunlongyu/ZY-Player')">Github</a>
-        <a @click="linkOpen('https://github.com/Hunlongyu/ZY-Player/issues')">当前版本v{{pkg.version}} 反馈</a>
-        <a style="color:#38dd77" @click="quitAndInstall()" v-show="latestVersion !== pkg.version" >最新版本v{{latestVersion}}</a>
-      </div>
-      <div class="view">
-        <div class="title">视图</div>
-        <div class="view-box">
-          <div class="zy-select" @mouseleave="show.view = false">
-            <div class="vs-placeholder" @click="show.view = true">默认视图</div>
-            <div class="vs-options" v-show="show.view">
-              <ul class="zy-scroll">
-                <li :class="d.view === 'picture' ? 'active' : ''" @click="changeView('picture')">海报</li>
-                <li :class="d.view === 'table' ? 'active' : ''" @click="changeView('table')">列表</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+        <a @click="linkOpen('https://github.com/Hunlongyu/ZY-Player/discussions/776')">软件完全免费，如遇收费，请立即给差评并退费！</a>
+        <a style="color:#38dd77" @click="openUpdate()" v-show="update.find" >最新版本v{{update.version}}</a>
       </div>
       <div class="shortcut">
         <div class="title">快捷键</div>
@@ -40,13 +26,16 @@
           <div class="zy-select">
             <div class="vs-placeholder vs-noAfter" @click="impShortcut">导入</div>
           </div>
+          <div class="zy-select">
+            <div class="vs-placeholder vs-noAfter" @click="resetShortcut">重置</div>
+          </div>
         </div>
       </div>
-      <div class="shortcut">
+      <div class="shortcut" title="清理缓存后图片资源需重新下载，不建议清理，软件会根据磁盘空间动态管理缓存大小">
         <div class="title">缓存</div>
         <div class="shortcut-box">
           <div class="zy-select">
-            <div class="vs-placeholder vs-noAfter" @click="clearCache">清理视频缓存</div>
+            <div class="vs-placeholder vs-noAfter" @click="clearCache">清理缓存</div>
           </div>
         </div>
       </div>
@@ -73,13 +62,34 @@
           </div>
       </div>
       <div class="site">
+        <div class="title">直播源管理</div>
+        <div class="site-box">
+          <div class="zy-select">
+            <div class="vs-placeholder vs-noAfter" @click="view = 'IPTV'">编辑直播源</div>
+          </div>
+          <div class="zy-input">
+           <input type="checkbox" v-model = "d.allowPassWhenIptvCheck" @change="updateSettingEvent"> 检测时自动跳过停用源
+          </div>
+          <div class="zy-input">
+           <input type="checkbox" v-model = "d.autocleanWhenIptvCheck" @change="updateSettingEvent"> 检测时自动清理无效源
+          </div>
+          <div class="zy-input">
+          <input type="checkbox" v-model = "d.autoChangeSourceWhenIptvStalling" @change="updateSettingEvent">
+          卡顿时自动换源换台:<input style="width:50px" type="number" min=0 v-model.number = "d.waitingTimeInSec" @change="updateSettingEvent">秒
+          </div>
+        </div>
+      </div>
+      <div class="site">
         <div class="title">源管理</div>
         <div class="site-box">
           <div class="zy-select">
             <div class="vs-placeholder vs-noAfter" @click="editSitesEvent">编辑源</div>
           </div>
-          <div class="zy-input" @click="toggleExcludeRootClasses">
-           <input type="checkbox" v-model = "d.excludeRootClasses" @change="updateSettingEvent"> 屏蔽主分类
+          <div class="zy-select">
+            <div class="vs-placeholder vs-noAfter" @click="show.configDefaultParseUrlDialog = true">设置默认解析接口</div>
+          </div>
+          <div class="zy-select">
+            <div class="vs-placeholder vs-noAfter" @click="show.configSitesDataUrlDialog = true">设置源站接口文件</div>
           </div>
         </div>
       </div>
@@ -95,6 +105,15 @@
                 <li :class="d.proxy.type === 'manual' ? 'active' : ''" @click="changeProxyType('manual')">手动指定代理</li>
               </ul>
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="site">
+        <div class="title">窗口及播放</div>
+        <div class="site-box">
+          <div class="zy-input">
+            <input type="checkbox" v-model = "d.restoreWindowPositionAndSize" @change="updateSettingEvent"> 记录并恢复窗口位置和大小
+            <input type="checkbox" v-model = "d.pauseWhenMinimize" @change="updateSettingEvent"> 最小化时暂停播放
           </div>
         </div>
       </div>
@@ -127,13 +146,6 @@
           </div>
         </div>
       </div>
-      <div class="qrcode">
-        <div class="title">请作者吃辣条</div>
-        <div class="qrcode-box">
-          <img class="qrcode-item" src="../assets/image/wepay-hunlongyu.png">
-          <img class="qrcode-item" src="../assets/image/wepay_cuiocean.jpg">
-        </div>
-      </div>
       <div class="clearDB">
         <span @click="clearDBEvent" class="clearBtn">软件重置</span>
         <span @click="changePasswordEvent" class="clearBtn">设置密码</span>
@@ -142,6 +154,34 @@
       <div class="Tips">
         <span>所有资源来自网上, 该软件不参与任何制作, 上传, 储存等内容, 禁止传播违法资源. 该软件仅供学习参考, 请于安装后24小时内删除.</span>
       </div>
+    </div>
+    <div> <!-- 设置默认解析接口 -->
+      <el-dialog :visible.sync="show.configDefaultParseUrlDialog" v-if='show.configDefaultParseUrlDialog' title="设置默认解析接口" :append-to-body="true" @close="closeDialog">
+        <el-form label-width="45px" label-position="left">
+          <el-form-item label="URL:">
+            <el-input v-model="setting.defaultParseURL" :autosize="{ minRows: 2, maxRows: 4}" type="textarea" placeholder="请输入解析接口地址，为空时会自动设置，重置时会自动更新默认接口地址"/>
+          </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="closeDialog">取消</el-button>
+          <el-button type="danger" @click="resetDefaultParseURL">重置</el-button>
+          <el-button type="primary" @click="configDefaultParseURL">确定</el-button>
+        </span>
+      </el-dialog>
+    </div>
+    <div> <!-- 设置源站接口文件 -->
+      <el-dialog :visible="show.configSitesDataUrlDialog" v-if='show.configSitesDataUrlDialog' title="设置源站接口文件" :append-to-body="true" @close="closeDialog">
+        <el-form label-width="45px" label-position="left">
+          <el-form-item label="URL:">
+            <el-input v-model="setting.sitesDataURL" :autosize="{ minRows: 2, maxRows: 4}" type="textarea" placeholder="请输入解析接口地址，为空时会自动设置，重置时会自动更新默认接口地址"/>
+          </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="closeDialog">取消</el-button>
+          <el-button type="danger" @click="resetDefaultSitesDataURL">重置</el-button>
+          <el-button type="primary" @click="configSitesDataURL">确定</el-button>
+        </span>
+      </el-dialog>
     </div>
     <div> <!-- 输入密码页面 -->
       <el-dialog :visible.sync="show.checkPasswordDialog" v-if='show.checkPasswordDialog' :append-to-body="true" @close="closeDialog" width="300px">
@@ -196,14 +236,28 @@
         </span>
       </el-dialog>
     </div>
+    <div class="update" v-if="update.show">
+      <div class="wrapper">
+        <div class="body">
+          <div class="content" v-html="update.html"></div>
+        </div>
+        <div class="footer">
+          <el-button size="small" @click="closeUpdate">关闭</el-button>
+          <el-button size="small" v-show="update.showDownload" @click="startUpdate">更新</el-button>
+          <el-button size="small" v-show="!update.showDownload && !update.downloaded">正在更新...</el-button>
+          <el-button size="small" v-show="update.downloaded" @click="installUpdate">安装</el-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 <script>
 import { mapMutations } from 'vuex'
 import pkg from '../../package.json'
 import { setting, sites, shortcut } from '../lib/dexie'
-import { sites as defaultSites } from '../lib/dexie/initData'
-import { shell, clipboard, remote, ipcRenderer } from 'electron'
+import { localKey as defaultShortcuts } from '../lib/dexie/initData'
+import { shell, clipboard, ipcRenderer } from 'electron'
+const remote = require('@electron/remote')
 import db from '../lib/dexie/dexie'
 import zy from '../lib/site/tools'
 export default {
@@ -220,7 +274,9 @@ export default {
         checkPasswordDialog: false,
         changePasswordDialog: false,
         proxy: false,
-        proxyDialog: false
+        proxyDialog: false,
+        configDefaultParseUrlDialog: false,
+        configSitesDataUrlDialog: false
       },
       d: { },
       latestVersion: pkg.version,
@@ -231,6 +287,14 @@ export default {
         scheme: '',
         url: '',
         port: ''
+      },
+      update: {
+        find: false,
+        version: '',
+        show: false,
+        html: '',
+        downloaded: false,
+        showDownload: true
       }
     }
   },
@@ -261,13 +325,29 @@ export default {
       setting.find().then(res => {
         this.d = res
         this.setting = this.d
+        if (!this.setting.defaultParseURL) this.configDefaultParseURL()
+        if (!this.setting.sitesDataURL) this.resetDefaultSitesDataURL()
+      })
+    },
+    async getDefaultSites () {
+      const s = await setting.find()
+      zy.getDefaultSites(s.sitesDataURL).then(res => {
+        if (res && typeof res === 'string') {
+          const json = JSON.parse(res)
+          sites.clear().then(sites.bulkAdd(json))
+        }
+        if (res && typeof res === 'object') {
+          sites.clear().then(sites.bulkAdd(res))
+        }
+      }).catch(error => {
+        this.$message.error('获取云端源站失败. ' + error)
       })
     },
     getSites () {
       sites.all().then(res => {
         if (res.length <= 0) {
           this.$message.warning('检测到视频源未能正常加载, 即将重置源.')
-          sites.clear().then(sites.bulkAdd(defaultSites).then(this.getSites()))
+          this.getDefaultSites()
         }
       })
     },
@@ -275,11 +355,6 @@ export default {
       shortcut.all().then(res => {
         this.shortcutList = res
       })
-    },
-    changeView (e) {
-      this.d.view = e
-      this.updateSettingEvent()
-      this.show.view = false
     },
     async clearCache () {
       const win = remote.getCurrentWindow()
@@ -302,6 +377,24 @@ export default {
       this.d.excludeRootClasses = !this.d.excludeRootClasses
       this.updateSettingEvent()
     },
+    async resetDefaultParseURL () {
+      this.setting.defaultParseURL = 'https://jx.bpba.cc/?v='
+    },
+    async configDefaultParseURL () {
+      if (!this.setting.defaultParseURL) await this.resetDefaultParseURL()
+      this.d.defaultParseURL = this.setting.defaultParseURL?.trim()
+      this.show.configDefaultParseUrlDialog = false
+      this.updateSettingEvent()
+    },
+    resetDefaultSitesDataURL () {
+      this.setting.sitesDataURL = 'https://raw.iqiq.io/Hunlongyu/ZY-Player-Resources/main/Sites/20220713.json'
+    },
+    configSitesDataURL () {
+      if (!this.setting.sitesDataURL) this.resetDefaultSitesDataURL()
+      this.d.sitesDataURL = this.setting.sitesDataURL
+      this.show.configSitesDataUrlDialog = false
+      this.updateSettingEvent()
+    },
     selectLocalPlayer () {
       const options = {
         filters: [
@@ -312,7 +405,7 @@ export default {
       }
       remote.dialog.showOpenDialog(options).then(result => {
         if (!result.canceled) {
-          var playerPath = result.filePaths[0].replace(/\\/g, '/')
+          const playerPath = result.filePaths[0].replace(/\\/g, '/')
           this.$message.success('设定第三方播放器路径为：' + result.filePaths[0])
           this.d.externalPlayer = playerPath
           this.updateSettingEvent()
@@ -344,6 +437,8 @@ export default {
     async closeDialog () {
       this.show.checkPasswordDialog = false
       this.show.changePasswordDialog = false
+      this.show.configDefaultParseUrlDialog = false
+      this.show.configSitesDataUrlDialog = false
       if (this.show.proxyDialog) {
         this.show.proxyDialog = false
         this.setting.proxy.type = 'none'
@@ -402,8 +497,18 @@ export default {
         this.$message.info('已清空原数据')
         shortcut.add(json).then(e => {
           this.$message.success('已添加成功')
-          this.getSites()
+          this.getShortcut()
+          this.d.shortcutModified = true
+          this.updateSettingEvent()
         })
+      })
+    },
+    resetShortcut () {
+      shortcut.clear().then(shortcut.add(defaultShortcuts)).then(res => {
+        this.getShortcut()
+        this.$message.success('快捷键已重置')
+        this.d.shortcutModified = true
+        this.updateSettingEvent()
       })
     },
     async changeProxyType (e) {
@@ -452,20 +557,29 @@ export default {
         return false
       }
     },
-    getLatestVersion () {
+    checkUpdate () {
       ipcRenderer.send('checkForUpdate')
       ipcRenderer.on('update-available', (e, info) => {
-        this.latestVersion = info.version
-      })
-      ipcRenderer.on('update-error', () => {
-        this.$message.warning = '更新出错.'
-      })
-      ipcRenderer.on('update-downloaded', () => {
-        this.$message.info = '下载完毕, 退出安装'
+        this.update.find = true
+        this.update.version = info.version
+        this.update.html = info.releaseNotes
       })
     },
-    quitAndInstall () {
-      this.$message.success('已开始下载更新，下载完毕后，将自动退出安装。')
+    openUpdate () {
+      this.update.show = true
+    },
+    closeUpdate () {
+      this.update.show = false
+    },
+    startUpdate () {
+      this.update.showDownload = false
+      ipcRenderer.send('downloadUpdate')
+      ipcRenderer.on('update-downloaded', () => {
+        this.update.downloaded = true
+        this.$message.success('更新已下载完成！Mac用户须手动点击“安装”，其它系统会在退出后自动安装')
+      })
+    },
+    installUpdate () {
       ipcRenderer.send('quitAndInstall')
     },
     createContextMenu () {
@@ -481,10 +595,10 @@ export default {
     }
   },
   created () {
-    this.getSites()
+    // this.getSites()
     this.getSetting()
     this.getShortcut()
-    this.getLatestVersion()
+    this.checkUpdate()
     this.createContextMenu()
   }
 }
@@ -520,17 +634,6 @@ export default {
       margin: 0 10px;
       font-size: 14px;
       cursor: pointer;
-    }
-  }
-  .view{
-    width: 100%;
-    padding: 20px;
-    margin-top: 20px;
-    .view-box{
-      margin-top: 10px;
-      .zy-select{
-        margin-right: 20px;
-      }
     }
   }
   .site{
@@ -626,6 +729,29 @@ export default {
     margin: 20px;
     font-size: 12px;
     color: #ff000066;
+  }
+  .update{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(7, 17, 27, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    .wrapper{
+      background-color: #fff;
+      padding: 20px 50px 40px;
+      border-radius: 4px;
+      max-width: 500px;
+      max-height: 90%;
+      overflow: auto;
+      .footer{
+        display: flex;
+        justify-content: flex-end;
+      }
+    }
   }
 }
 </style>

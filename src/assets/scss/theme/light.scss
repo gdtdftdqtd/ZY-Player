@@ -1,5 +1,6 @@
 .theme-light{
-  background-color: var(--l-bgc-1);
+  // background-color: var(--l-bgc-1);
+  background: rgba(0, 0, 0, 0);
   .zy-select{
     color: var(--l-fc-1);
     background-color: var(--l-bgc-1);
@@ -131,6 +132,23 @@
                 border-color: var(--l-c-8);
               }
             }
+            .selected {
+              background-color: var(--l-c-5);
+              &:hover{
+                background-color: var(--l-c-5);
+              }
+            }
+          }
+          .show-picture{
+            color: var(--l-fc-1);
+            .card{
+              background-color: var(--l-bgc-3);
+              box-shadow: var(--l-bsc);
+              transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+              &:hover{
+                box-shadow: var(--l-bsc-hover);
+              }
+            }
           }
         }
       }
@@ -139,6 +157,13 @@
   .play{
     background-color: var(--l-bgc-1);
     box-shadow: var(--l-bsc);
+    .el-input{
+      input{
+        background-color: var(--l-bgc-1);
+        border: 1px solid var(--l-bgc-1);
+        color: var(--l-fc-2);
+      }
+    }
     .title{
       color: var(--l-fc-1);
       .right {
@@ -148,6 +173,21 @@
       }
     }
     .box{
+      .title{
+        .right{
+          color: var(--l-fc-2);
+          svg{
+            stroke: var(--l-c-5);
+            stroke-width: 1;
+            fill: none;
+            &:hover{
+              stroke: var(--l-c-8);
+              stroke-width: 1.5;
+              fill: var(--l-c-2);
+            }
+          }
+        }
+      }
       .more{
         span{
           svg{
@@ -204,6 +244,14 @@
             }
             &:hover{
               background-color: var(--l-c-3);
+            }
+          }
+        }
+        .list-channels{
+          .btn{
+            color: var(--l-fc-1);
+            &:hover{
+              text-decoration:underline;
             }
           }
         }
@@ -304,7 +352,20 @@
   // Page of list using table and picture
   .listpage{
     color: var(--l-fc-2);
-    .listpage-header{
+    .listpage-header-divider{
+      background-color: var(--l-bgc-1);
+      .el-divider__text {
+        background-color: var(--l-bgc-2);
+      }
+      .el-button{
+        background-color: var(--l-bgc-2);
+        color: var(--l-fc-2);
+        &:hover{
+          color: var(--l-fc-3)
+        }
+      }
+    }
+    .listpage-header, .toolbar{
       border-bottom-color: var(--l-c-3);
       .btn{
         &:hover{
@@ -400,7 +461,7 @@
       .show-picture{
         color: var(--l-fc-1);
         .card{
-          background-color: var(--l-bgc-1);
+          background-color: var(--l-bgc-3);
           box-shadow: var(--l-bsc);
           transition: all 0.3s cubic-bezier(.25,.8,.25,1);
           &:hover{

@@ -17,7 +17,7 @@
           </svg>
         </span>
       </div>
-      <div class="detail-body zy-scroll" v-show="!loading">
+      <div class="detail-body zy-scroll listpage" v-show="!loading">
         <div class="info">
           <div class="info-left">
             <img :src="info.pic" alt="">
@@ -36,10 +36,10 @@
           </div>
         </div>
         <div class="operate">
-          <span @click="playEvent(0)">播放</span>
-          <span @click="starEvent">收藏</span>
+          <span @click="playEvent(selectedEpisode)">播放</span>
+          <span @click="starEvent(info)">收藏</span>
           <span @click="downloadEvent">下载</span>
-          <span @click="shareEvent">分享</span>
+          <span @click="shareEvent(info,selectedEpisode)">分享</span>
           <span @click="doubanLinkEvent">豆瓣</span>
           <span @click="togglePlayOnlineEvent">
             <input type="checkbox" v-model="playOnline"> 播放在线高清视频
@@ -52,10 +52,57 @@
           </span>
         </div>
         <div
-          class="desc" v-show="info.des">{{info.des}}</div>
+          class="desc" v-show="info.des">{{info.des}}
+        </div>
+        <div class="m3u8" v-if="videoFullList.length > 1">
+          <div class="box">
+            <span v-bind:class="{ selected: i.flag === videoFlag }" v-for="(i, j) in videoFullList" :key="j" @click="updateVideoList(i)">{{i.flag}}</span>
+          </div>
+        </div>
         <div class="m3u8">
           <div class="box">
-            <span v-for="(i, j) in m3u8List" :key="j" @click="playEvent(j)">{{i | ftName}}</span>
+            <span v-bind:class="{ selected: j === selectedEpisode }" v-for="(i, j) in videoList" :key="j" @click="playEvent(j)" @mouseenter="() => { selectedEpisode = j }">{{ i | ftName(j) }}</span>
+          </div>
+        </div>
+        <div class="m3u8">
+          <div class="show-picture" v-show="info.recommendations && info.recommendations.length > 0">
+            <span>喜欢这部电影的人也喜欢 · · · · · ·</span>
+            <Waterfall :list="info.recommendations" :gutter="20" :width="240"
+            :breakpoints="{
+            1200: { //当屏幕宽度小于等于1200
+              rowPerView: 4,
+            },
+            800: { //当屏幕宽度小于等于800
+              rowPerView: 3,
+            },
+            500: { //当屏幕宽度小于等于500
+              rowPerView: 2,
+            }
+          }"
+          animationEffect="fadeIn"
+          backgroundColor="rgba(0, 0, 0, 0)">
+            <template slot="item" slot-scope="props">
+              <div class="card">
+                <div class="img">
+                  <img style="width: 100%" :src="props.data.pic" alt="" @click="detailEvent(props.data)">
+                  <div class="operate">
+                    <div class="operate-wrap">
+                      <span class="o-play" @click="playRecommendationEvent(props.data)">播放</span>
+                      <span class="o-star" @click="starEvent(props.data)">收藏</span>
+                      <span class="o-share" @click="shareEvent(props.data, 0)">分享</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="name">{{props.data.name}}</div>
+                <div class="info">
+                  <span>{{props.data.area}}</span>
+                  <span>{{props.data.year}}</span>
+                  <span>{{props.data.note}}</span>
+                  <span>{{props.data.type}}</span>
+                </div>
+              </div>
+            </template>
+            </Waterfall>
           </div>
         </div>
       </div>
@@ -67,6 +114,7 @@
 </template>
 <script>
 import { mapMutations } from 'vuex'
+import Waterfall from 'vue-waterfall-plugin'
 import zy from '../lib/site/tools'
 import onlineVideo from '../lib/site/onlineVideo'
 import { star, history } from '../lib/dexie'
@@ -76,17 +124,26 @@ export default {
   data () {
     return {
       loading: true,
-      m3u8List: [],
+      videoFlag: '',
+      videoList: [],
+      videoFullList: [],
+      key: '',
+      site: {},
       info: {},
       playOnline: false,
+      selectedEpisode: 0, // 选定集数
       selectedOnlineSite: '哔嘀',
       onlineSites: ['哔嘀', '素白白', '简影', '极品', '喜欢看', '1080影视']
     }
   },
   filters: {
-    ftName (e) {
-      const name = e.split('$')[0]
-      return name
+    ftName (e, n) {
+      const num = e.split('$')
+      if (num.length > 1) {
+        return e.split('$')[0]
+      } else {
+        return `第${(n + 1)}集`
+      }
     }
   },
   computed: {
@@ -121,26 +178,66 @@ export default {
       set (val) {
         this.SET_SHARE(val)
       }
+    },
+    DetailCache: {
+      get () {
+        return this.$store.getters.getDetailCache
+      },
+      set (val) {
+        this.SET_DetailCache(val)
+      }
     }
   },
+  components: {
+    Waterfall
+  },
   methods: {
-    ...mapMutations(['SET_VIEW', 'SET_VIDEO', 'SET_DETAIL', 'SET_SHARE']),
+    ...mapMutations(['SET_VIEW', 'SET_VIDEO', 'SET_DETAIL', 'SET_SHARE', 'SET_DetailCache']),
+    async playRecommendationEvent (e) {
+      const db = await history.find({ site: this.detail.key, ids: e.id })
+      if (db) {
+        this.video = { key: db.site, info: { id: db.ids, name: db.name, index: db.index, site: this.detail.site } }
+      } else {
+        this.video = { key: this.detail.key, info: { id: e.id, name: e.name, index: 0, site: this.detail.site } }
+      }
+      this.video.detail = e
+      this.view = 'Play'
+      this.detail.show = false
+    },
+    addClass (flag) {
+      if (flag === this.videoFlag) {
+        return 'selectedBox'
+      } else {
+        return 'box'
+      }
+    },
     close () {
       this.detail.show = false
+    },
+    async updateVideoList (e) {
+      this.videoFlag = e.flag
+      this.videoList = e.list
+      const db = await history.find({ site: this.detail.key, ids: this.detail.info.id })
+      if (db) {
+        const doc = { ...db }
+        doc.videoFlag = e.flag
+        delete doc.id
+        history.update(db.id, doc)
+      }
     },
     async playEvent (n) {
       if (!this.playOnline) {
         const db = await history.find({ site: this.detail.key, ids: this.detail.info.id })
         if (db) {
-          this.video = { key: db.site, info: { id: db.ids, name: db.name, index: n, site: this.detail.site } }
+          this.video = { key: db.site, info: { id: db.ids, name: db.name, index: n, site: this.detail.site, videoFlag: this.videoFlag } }
         } else {
-          this.video = { key: this.detail.key, info: { id: this.detail.info.id, name: this.detail.info.name, index: n, site: this.detail.site } }
+          this.video = { key: this.detail.key, info: { id: this.detail.info.id, name: this.detail.info.name, index: n, site: this.detail.site, videoFlag: this.videoFlag } }
         }
         this.video.detail = this.info
         this.view = 'Play'
         this.detail.show = false
       } else {
-        const db = await history.find({ site: this.detail.key, ids: this.detail.info.id })
+        const db = await history.find({ site: this.detail.key, ids: this.info.id })
         if (db) {
           db.index = n
           db.detail = this.info
@@ -161,15 +258,15 @@ export default {
         onlineVideo.playVideoOnline(this.selectedOnlineSite, this.detail.info.name, n)
       }
     },
-    async starEvent () {
-      const db = await star.find({ key: this.detail.key, ids: this.info.id })
+    async starEvent (info) {
+      const db = await star.find({ key: this.detail.key, ids: info.id })
       const doc = {
         key: this.detail.key,
-        ids: this.info.id,
+        ids: info.id,
         site: this.detail.site,
-        name: this.info.name,
-        detail: this.info,
-        rate: this.info.rate
+        name: info.name,
+        detail: info,
+        rate: info.rate
       }
       if (db) {
         star.update(db.id, doc)
@@ -179,6 +276,10 @@ export default {
           this.$message.success('收藏成功')
         })
       }
+    },
+    detailEvent (info) {
+      this.detail.info = info
+      this.getDetailInfo()
     },
     togglePlayOnlineEvent () {
       this.playOnline = !this.playOnline
@@ -211,64 +312,70 @@ export default {
       }
     },
     downloadEvent () {
-      zy.download(this.detail.key, this.info.id).then(res => {
-        if (res && res.dl && res.dl.dd) {
-          const text = res.dl.dd._t
-          if (text) {
-            const list = text.split('#')
-            let downloadUrl = res.name + '\n'
-            for (const i of list) {
-              const url = encodeURI(i.split('$')[1])
-              downloadUrl += (url + '\n')
-            }
-            clipboard.writeText(downloadUrl)
-            this.$message.success('『MP4』格式的链接已复制, 快去下载吧!')
-          } else {
-            this.$message.warning('没有查询到下载链接.')
-          }
-        } else {
-          const list = [...this.m3u8List]
-          let downloadUrl = this.detail.info.name + '\n'
-          for (const i of list) {
-            const url = encodeURI(i.split('$')[1])
-            downloadUrl += (url + '\n')
-          }
-          clipboard.writeText(downloadUrl)
-          this.$message.success('『M3U8』格式的链接已复制, 快去下载吧!')
-        }
+      zy.download(this.detail.key, this.info.id, this.videoFlag).then(res => {
+        clipboard.writeText(res.downloadUrls)
+        this.$message.success(res.info)
+      }).catch((err) => {
+        this.$message.error(err.info)
       })
     },
-    shareEvent () {
+    shareEvent (info, selectedEpisode) {
       this.share = {
         show: true,
         key: this.detail.key,
-        info: this.detail.info
+        info: info,
+        index: selectedEpisode
       }
     },
     doubanLinkEvent () {
-      const name = this.detail.info.name.trim()
-      zy.doubanLink(name).then(link => {
+      const name = this.info.name.trim()
+      const year = this.info.year
+      zy.doubanLink(name, year).then(link => {
         const open = require('open')
         open(link)
       })
     },
-    getDoubanRate () {
-      const name = this.detail.info.name.trim()
-      zy.doubanRate(name).then(res => {
-        this.info.rate = res
-      })
+    async getDoubanRate () {
+      const name = this.info.name.trim()
+      const year = this.info.year
+      this.info.rate = await zy.doubanRate(name, year)
+      const recommendations = await zy.doubanRecommendations(name, year)
+      if (recommendations) {
+        this.info.recommendations = []
+        recommendations.forEach(element => {
+          zy.searchFirstDetail(this.detail.key, element).then(detailRes => {
+            if (detailRes) {
+              this.info.recommendations.push(detailRes)
+            }
+          })
+        })
+      }
     },
-    getDetailInfo () {
+    async getDetailInfo () {
       const id = this.detail.info.ids || this.detail.info.id
-      zy.detail(this.detail.key, id).then(res => {
-        if (res) {
-          this.info = res
-          this.$set(this.info, 'rate', '')
-          this.m3u8List = res.m3u8List
-          this.getDoubanRate()
-          this.loading = false
+      const cacheKey = this.detail.key + '@' + id
+      const db = await history.find({ site: this.detail.key, ids: id })
+      if (db) {
+        this.videoFlag = db.videoFlag
+        this.selectedEpisode = db.index
+      }
+      if (!this.DetailCache[cacheKey]) {
+        this.DetailCache[cacheKey] = await zy.detail(this.detail.key, id)
+      }
+      const res = this.DetailCache[cacheKey]
+      if (res) {
+        this.info = res
+        this.$set(this.info, 'rate', this.DetailCache[cacheKey].rate || '')
+        this.$set(this.info, 'recommendations', this.DetailCache[cacheKey].recommendations || [])
+        this.videoFlag = this.videoFlag || res.fullList[0].flag
+        this.videoList = res.fullList[0].list
+        this.videoFullList = res.fullList
+        this.loading = false
+        if (!this.info.rate) {
+          await this.getDoubanRate()
+          this.DetailCache[cacheKey] = this.info
         }
-      })
+      }
     }
   },
   created () {
@@ -382,6 +489,15 @@ export default {
       .box {
         width: 100%;
         span {
+          display: inline-block;
+          font-size: 12px;
+          border: 1px solid;
+          border-radius: 2px;
+          cursor: pointer;
+          margin: 6px 10px 0px 0px;
+          padding: 8px 22px;
+        }
+        .selected {
           display: inline-block;
           font-size: 12px;
           border: 1px solid;

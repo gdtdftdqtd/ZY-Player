@@ -1,18 +1,24 @@
 import { BrowserWindow, ipcMain } from 'electron'
-import { autoUpdater } from 'electron-updater'
+const { autoUpdater } = require('electron-updater')
 
+// electron-updater 增量更新时似乎无法显示进度
 export function initUpdater (win = BrowserWindow) {
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = false
+  autoUpdater.autoInstallOnAppQuit = true
 
   // 主进程监听检查更新事件
   ipcMain.on('checkForUpdate', () => {
     autoUpdater.checkForUpdates()
   })
 
+  // 主进程监听开始下载事件
+  ipcMain.on('downloadUpdate', () => {
+    autoUpdater.downloadUpdate()
+  })
+
   // 主进程监听退出并安装事件
   ipcMain.on('quitAndInstall', () => {
-    autoUpdater.downloadUpdate()
+    autoUpdater.quitAndInstall()
   })
 
   // 开始检测是否有更新
@@ -40,9 +46,8 @@ export function initUpdater (win = BrowserWindow) {
     win.webContents.send('download-progress', progressObj)
   })
 
-  // 下载完成并退出安装
+  // 下载完成
   autoUpdater.on('update-downloaded', () => {
     win.webContents.send('update-downloaded')
-    autoUpdater.quitAndInstall()
   })
 }

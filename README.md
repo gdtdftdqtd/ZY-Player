@@ -42,9 +42,19 @@
 
 ### 🌴 下载
 
-- 🍓 [Github -- 官方下载](https://github.com/Hunlongyu/ZY-Player/releases)
-- 🍉 [蓝奏云 -- 快速下载](https://www.lanzoux.com/b04s6a3re) 密码:95px
-- 🍒 适用于32位操作系统的x86软件,在蓝奏云网盘里, 后缀名: ZY Player * 32位.exe
+- 🎃 软件暂时关闭下载通道. 请大家支持正版.
+- 🎭 所有资源来自网上, 该软件不参与任何制作, 上传, 储存等内容, 禁止传播违法资源. 该软件仅供学习参考, 请于安装后24小时内删除.
+
+### 🎠 平台
+
+| 平台                                  | 链接                                                        |
+| :------------------------------------ | :---------------------------------------------------------- |
+| 🖥️ 电脑端 ( Windows & Mac & Linux )    | [ZY Player](https://github.com/Hunlongyu/ZY-Player)         |
+| 📱 手机端 ( Android & IOS )            | [ZY Player APP](https://github.com/Hunlongyu/ZY-Player-APP) |
+| 📺 电视端 ( Android & Mac ) ( 进行中 ) | [ZY Player TV](https://github.com/cuiocean/ZY-Player-TV)    |
+| 🌐 浏览器 ( Web )                      | [ZY Player Web](https://github.com/Hunlongyu/ZY-Player-Web) |
+
+
 
 ### 🚀 快捷键
 
@@ -81,7 +91,8 @@
 
 ### 🍭 开发者
 
-|          [Hunlongyu](https://github.com/Hunlongyu)           |           [cuiocean](https://github.com/cuiocean)            |
-| :----------------------------------------------------------: | :----------------------------------------------------------: |
-| <img width="120" src="https://avatars2.githubusercontent.com/u/15273630?s=460&u=48cf3299e2a842c0252233d8be42ef4c5d792138&v=4"/> | <img width="120" src="https://avatars0.githubusercontent.com/u/5760235?s=460&u=9d969dd8d83f069ce7ebd60516770c93ac07a330&v=4" /> |
-|                            💻 🎨 🐛                             |                             💻 🐛                              |
+|          [Hunlongyu](https://github.com/Hunlongyu)           |           [cuiocean](https://github.com/cuiocean)            |              [buvta](https://github.com/buvta)               |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+| <img width="120" src="https://avatars2.githubusercontent.com/u/15273630?s=460&u=48cf3299e2a842c0252233d8be42ef4c5d792138&v=4"/> | <img width="120" src="https://avatars0.githubusercontent.com/u/5760235?s=460&u=9d969dd8d83f069ce7ebd60516770c93ac07a330&v=4" /> | <img width="120" src="https://avatars3.githubusercontent.com/u/12312540?s=400&v=4" /> |
+|                            💻 🎨 🐛                             |                             💻 🐛                              |                             💻 🐛                              |
+

@@ -1,20 +1,64 @@
 <template>
   <div class="listpage" id="star">
     <div class="listpage-header" id="star-header">
-        <el-switch v-model="viewMode" active-text="海报" active-value="picture" inactive-text="列表" inactive-value="table" @change="updateViewMode"></el-switch>
-        <el-button @click.stop="exportFavoritesEvent" icon="el-icon-upload2">导出</el-button>
-        <el-button @click.stop="importFavoritesEvent" icon="el-icon-download">导入</el-button>
-        <el-button @click.stop="clearFavoritesEvent" icon="el-icon-delete-solid">清空</el-button>
-        <el-button @click.stop="updateAllEvent" icon="el-icon-refresh">同步所有收藏</el-button>
+        <el-button @click.stop="exportFavoritesEvent" icon="el-icon-upload2" title="导出全部，自动添加扩展名">导出</el-button>
+        <el-button @click.stop="importFavoritesEvent" icon="el-icon-download" title="支持同时导入多个文件">导入</el-button>
+        <el-button @click.stop="removeSelectedItems" icon="el-icon-delete-solid">{{ multipleSelection.length === 0 ? "清空" : "删除所选" }}</el-button>
+        <b-button-group>
+          <el-switch v-model="onlyShowItemsHasUpdate" active-text="有更新" inactive-text="全部" @change="refreshFilteredList"></el-switch>
+          <el-button @click.stop="updateAllEvent" icon="el-icon-refresh">检查更新</el-button>
+        </b-button-group>
     </div>
+    <div class="toolbar" v-show="showToolbar">
+      <el-select v-model="selectedAreas" size="small" multiple placeholder="地区" popper-class="popper" :popper-append-to-body="false" @remove-tag="refreshFilteredList" @change="refreshFilteredList">
+        <el-option
+          v-for="item in areas"
+          :key="item"
+          :label="item"
+          :value="item">
+        </el-option>
+      </el-select>
+      <el-select v-model="selectedTypes" size="small" multiple placeholder="类型" popper-class="popper" :popper-append-to-body="false" @remove-tag="refreshFilteredList" @change="refreshFilteredList">
+        <el-option
+          v-for="item in types"
+          :key="item"
+          :label="item"
+          :value="item">
+        </el-option>
+      </el-select>
+      <el-select v-model="sortKeyword" size="small" placeholder="排序" popper-class="popper" :popper-append-to-body="false" @change="refreshFilteredList">
+        <el-option
+          v-for="item in sortKeywords"
+          :key="item"
+          :label="item"
+          :value="item">
+        </el-option>
+      </el-select>
+      <span>
+       上映区间：
+       <el-input-number size="small" v-model="selectedYears.start" :min=0 :max="new Date().getFullYear()" controls-position="right" step-strictly @change="refreshFilteredList"></el-input-number>
+       至
+       <el-input-number size="small" v-model="selectedYears.end" :min=0 :max="new Date().getFullYear()" controls-position="right" step-strictly @change="refreshFilteredList"></el-input-number>
+       </span>
+    </div>
+    <el-divider class="listpage-header-divider" content-position="right">
+      <el-button type="text" size="mini" @click="toggleViewMode">视图切换</el-button>
+      <el-button type="text" size="mini" @click='() => { showToolbar = !showToolbar; if (!showToolbar) this.refreshFilteredList() }' title="收起工具栏会重置筛选排序">{{ showToolbar ? '隐藏工具栏' : '显示工具栏' }}</el-button>
+      <el-button type="text" size="mini" @click="backTop">回到顶部</el-button>
+    </el-divider>
     <div class="listpage-body" id="star-body">
-      <div class="show-table" id="star-table"  v-show="viewMode === 'table'">
+      <div class="show-table" id="star-table"  v-if="setting.starViewMode === 'table'">
         <el-table size="mini" fit height="100%" row-key="id"
-        ref="starTable"
-        :data="list"
-        :cell-class-name="checkUpdate"
-        @row-click="detailEvent"
-        @sort-change="handleSortChange">
+          ref="starTable"
+          :data="filteredList"
+          :cell-class-name="checkUpdate"
+          @row-click="detailEvent"
+          @sort-change="handleSortChange"
+          @select="selectionCellClick"
+          @selection-change="handleSelectionChange">
+          <el-table-column
+            type="selection">
+          </el-table-column>
           <el-table-column
             sortable
             :sort-method="(a , b) => sortByLocaleCompare(a.name, b.name)"
@@ -78,8 +122,8 @@
           </el-table-column>
         </el-table>
       </div>
-      <div class="show-picture" id="star-picture" v-show="viewMode === 'picture'">
-        <Waterfall ref="starWaterfall" :list="list" :gutter="20" :width="240"
+      <div class="show-picture" id="star-picture" v-if="setting.starViewMode === 'picture'">
+        <Waterfall ref="starWaterfall" :list="filteredList" :gutter="20" :width="240"
           :breakpoints="{
             1200: { //当屏幕宽度小于等于1200
               rowPerView: 4,
@@ -102,7 +146,7 @@
                   <div class="update" v-if="props.data.hasUpdate">
                     <span>有更新</span>
                   </div>
-                  <div class="progress" v-if="props.data.index && props.data.detail && props.data.detail.m3u8List !== undefined && props.data.detail.m3u8List.length > 1">
+                  <div class="progress" v-if="props.data.index && props.data.detail && props.data.detail.fullList[0].list !== undefined && props.data.detail.fullList[0].list.length > 1">
                   <span>
                     看至第{{ props.data.index + 1 }}集
                   </span>
@@ -133,9 +177,9 @@
 </template>
 <script>
 import { mapMutations } from 'vuex'
-import { star, sites, setting } from '../lib/dexie'
+import { history, star, sites, setting } from '../lib/dexie'
 import zy from '../lib/site/tools'
-import { remote } from 'electron'
+const remote = require('@electron/remote')
 import fs from 'fs'
 import Sortable from 'sortablejs'
 import Waterfall from 'vue-waterfall-plugin'
@@ -146,8 +190,22 @@ export default {
     return {
       list: [],
       sites: [],
-      viewMode: 'picture',
-      numNoUpdate: 0
+      numNoUpdate: 0,
+      shiftDown: false,
+      selectionBegin: '',
+      selectionEnd: '',
+      multipleSelection: [],
+      filteredList: [],
+      areas: [],
+      types: [],
+      // Toolbar
+      showToolbar: false,
+      selectedAreas: [],
+      selectedTypes: [],
+      sortKeyword: '',
+      sortKeywords: ['按片名', '按上映年份', '按更新时间'],
+      selectedYears: { start: 0, end: new Date().getFullYear() },
+      onlyShowItemsHasUpdate: false
     }
   },
   components: {
@@ -185,6 +243,22 @@ export default {
       set (val) {
         this.SET_SHARE(val)
       }
+    },
+    setting: {
+      get () {
+        return this.$store.getters.getSetting
+      },
+      set (val) {
+        this.SET_SETTING(val)
+      }
+    },
+    DetailCache: {
+      get () {
+        return this.$store.getters.getDetailCache
+      },
+      set (val) {
+        this.SET_DetailCache(val)
+      }
     }
   },
   watch: {
@@ -192,9 +266,7 @@ export default {
       if (this.view === 'Star') {
         this.getAllsites()
         this.getFavorites()
-        if (this.$refs.starWaterfall) {
-          this.$refs.starWaterfall.refresh()
-        }
+        if (this.setting.starViewMode === 'table') this.showShiftPrompt()
       }
     },
     numNoUpdate () {
@@ -203,15 +275,109 @@ export default {
         this.numNoUpdate = 0
         this.$message.warning('未查询到任何更新')
       }
+    },
+    list: {
+      handler (list) {
+        this.areas = [...new Set(list.map(ele => ele.detail.area))].filter(x => x)
+        this.types = [...new Set(list.map(ele => ele.detail.type))].filter(x => x)
+        this.refreshFilteredList()
+      },
+      deep: true
     }
   },
   methods: {
-    ...mapMutations(['SET_VIEW', 'SET_DETAIL', 'SET_VIDEO', 'SET_SHARE']),
+    ...mapMutations(['SET_VIEW', 'SET_DETAIL', 'SET_VIDEO', 'SET_SHARE', 'SET_SETTING']),
+    toggleViewMode () {
+      this.setting.starViewMode = this.setting.starViewMode === 'picture' ? 'table' : 'picture'
+      if (this.setting.starViewMode === 'table') {
+        setTimeout(() => { this.rowDrop() }, 100)
+        this.showShiftPrompt()
+      } else {
+        setTimeout(() => { if (this.$refs.starWaterfall) this.$refs.starWaterfall.refresh() }, 700)
+      }
+      setting.find().then(res => {
+        res.starViewMode = this.setting.starViewMode
+        setting.update(res)
+      })
+    },
+    backTop () {
+      if (this.setting.starViewMode === 'picture') {
+        document.getElementById('star-body').scrollTop = 0
+      } else {
+        this.$refs.starTable.bodyWrapper.scrollTop = 0
+      }
+    },
+    refreshFilteredList () {
+      if (!this.showToolbar) {
+        this.sortKeyword = ''
+        this.selectedAreas = []
+        this.selectedSearchClassNames = []
+        this.selectedYears.start = 0
+        this.selectedYears.end = new Date().getFullYear()
+        this.filteredList = this.list
+      } else {
+        let filteredData = this.list
+        filteredData = filteredData.filter(x => (this.selectedAreas.length === 0) || this.selectedAreas.includes(x.detail.area))
+        filteredData = filteredData.filter(x => (this.selectedTypes.length === 0) || this.selectedTypes.includes(x.detail.type))
+        filteredData = filteredData.filter(res => res.detail.year >= this.selectedYears.start)
+        filteredData = filteredData.filter(res => res.detail.year <= this.selectedYears.end)
+        switch (this.sortKeyword) {
+          case '按上映年份':
+            filteredData.sort(function (a, b) {
+              return b.detail.year - a.detail.year
+            })
+            break
+          case '按片名':
+            filteredData.sort(function (a, b) {
+              return a.detail.name.localeCompare(b.detail.name, 'zh')
+            })
+            break
+          case '按更新时间':
+            filteredData.sort(function (a, b) {
+              return new Date(b.detail.last) - new Date(a.detail.last)
+            })
+            break
+          default:
+            break
+        }
+        this.filteredList = filteredData
+      }
+      if (this.onlyShowItemsHasUpdate) {
+        this.filteredList = this.filteredList.filter(x => x.hasUpdate)
+      }
+    },
     handleSortChange (column, prop, order) {
       this.updateDatabase()
     },
     sortByLocaleCompare (a, b) {
       return a.localeCompare(b, 'zh')
+    },
+    selectionCellClick (selection, row) { // 同history一样，逆序
+      if (this.shiftDown && this.selectionBegin !== '' && selection.includes(row)) {
+        this.selectionEnd = row.id
+        const start = this.list.findIndex(e => e.id === Math.max(this.selectionBegin, this.selectionEnd))
+        const end = this.list.findIndex(e => e.id === Math.min(this.selectionBegin, this.selectionEnd))
+        const selections = this.list.slice(start, end + 1)
+        this.$nextTick(() => {
+          selections.forEach(e => this.$refs.starTable.toggleRowSelection(e, true))
+        })
+        this.selectionBegin = this.selectionEnd = ''
+        return
+      }
+      if (selection.includes(row)) {
+        this.selectionBegin = row.id
+      } else {
+        this.selectionBegin = ''
+      }
+    },
+    handleSelectionChange (rows) {
+      this.multipleSelection = rows
+    },
+    removeSelectedItems () {
+      if (!this.multipleSelection.length) this.multipleSelection = this.list
+      this.multipleSelection.forEach(e => star.remove(e.id))
+      this.getFavorites()
+      this.updateDatabase()
     },
     detailEvent (e) {
       this.detail = {
@@ -228,9 +394,9 @@ export default {
     },
     async playEvent (e) {
       if (e.index) {
-        this.video = { key: e.key, info: { id: e.ids, name: e.name, index: e.index }, detail: e.detail }
+        this.video = { key: e.key, info: { id: e.ids, name: e.name, index: e.index } }
       } else {
-        this.video = { key: e.key, info: { id: e.ids, name: e.name, index: 0 }, detail: e.detail }
+        this.video = { key: e.key, info: { id: e.ids, name: e.name, index: 0 } }
       }
       if (e.hasUpdate) {
         this.clearHasUpdateFlag(e)
@@ -249,7 +415,7 @@ export default {
       this.share = {
         show: true,
         key: e.key,
-        info: e
+        info: e.detail
       }
     },
     checkUpdate ({ row, rowIndex }) {
@@ -265,21 +431,24 @@ export default {
         this.getFavorites()
       }
     },
-    updateEvent (e) {
-      zy.detail(e.key, e.ids).then(detailRes => {
-        var doc = {
+    async updateEvent (e) {
+      try {
+        if (!this.DetailCache[e.key + '@' + e.ids]) {
+          this.DetailCache[e.key + '@' + e.ids] = await zy.detail(e.key, e.ids)
+        }
+        const doc = {
           id: e.id,
           key: e.key,
           ids: e.ids,
           site: e.site,
           name: e.name,
-          detail: detailRes,
+          detail: this.DetailCache[e.key + '@' + e.ids],
           index: e.index
         }
         star.get(e.id).then(resStar => {
-          if (!e.hasUpdate && e.detail.last !== detailRes.last) {
+          if (!e.hasUpdate && e.detail.last !== doc.detail.last) {
             doc.hasUpdate = true
-            var msg = `同步"${e.name}"成功, 检查到更新。`
+            const msg = `检查到"${e.name}"有更新。`
             this.$message.success(msg)
           } else {
             this.numNoUpdate += 1
@@ -287,10 +456,10 @@ export default {
           star.update(e.id, doc)
           this.getFavorites()
         })
-      }).catch(err => {
-        var msg = `同步"${e.name}"失败, 请重试。`
+      } catch (err) {
+        const msg = `更新"${e.name}"失败, 请重试。`
         this.$message.warning(msg, err)
-      })
+      }
     },
     updateAllEvent () {
       this.numNoUpdate = 0
@@ -298,53 +467,22 @@ export default {
         this.updateEvent(e)
       })
     },
-    downloadEvent (e) {
-      zy.download(e.key, e.ids).then(res => {
-        if (res && res.dl && res.dl.dd) {
-          const text = res.dl.dd._t
-          if (text) {
-            const list = text.split('#')
-            let downloadUrl = ''
-            for (const i of list) {
-              const url = encodeURI(i.split('$')[1])
-              downloadUrl += (url + '\n')
-            }
-            clipboard.writeText(downloadUrl)
-            this.$message.success('『MP4』格式的链接已复制, 快去下载吧!')
-          } else {
-            this.$message.warning('没有查询到下载链接.')
-          }
-        } else {
-          var m3u8List = {}
-          zy.detail(e.key, e.ids).then(res => {
-            const dd = res.dl.dd
-            const type = Object.prototype.toString.call(dd)
-            if (type === '[object Array]') {
-              for (const i of dd) {
-                if (i._flag.indexOf('m3u8') >= 0) {
-                  m3u8List = i._t.split('#')
-                }
-              }
-            } else {
-              m3u8List = dd._t.split('#')
-            }
-            const list = [...m3u8List]
-            let downloadUrl = ''
-            for (const i of list) {
-              const url = encodeURI(i.split('$')[1])
-              downloadUrl += (url + '\n')
-            }
-            clipboard.writeText(downloadUrl)
-            this.$message.success('『M3U8』格式的链接已复制, 快去下载吧!')
-          })
-        }
+    async downloadEvent (e) {
+      const db = await history.find({ site: e.key, ids: e.ids })
+      let videoFlag
+      if (db) videoFlag = db.videoFlag
+      zy.download(e.key, e.ids, videoFlag).then(res => {
+        clipboard.writeText(res.downloadUrls)
+        this.$message.success(res.info)
+      }).catch((err) => {
+        this.$message.error(err.info)
       })
     },
     getSiteName (row) {
       if (row.site) {
         return row.site.name
       } else {
-        var site = this.sites.find(e => e.key === row.key)
+        const site = this.sites.find(e => e.key === row.key)
         if (site) {
           return site.name
         }
@@ -374,13 +512,12 @@ export default {
       const str = JSON.stringify(arr, null, 2)
       const options = {
         filters: [
-          { name: 'JSON file', extensions: ['json'] },
-          { name: 'Normal text file', extensions: ['txt'] },
-          { name: 'All types', extensions: ['*'] }
+          { name: 'JSON file', extensions: ['json'] }
         ]
       }
       remote.dialog.showSaveDialog(options).then(result => {
         if (!result.canceled) {
+          if (!result.filePath.endsWith('.json')) result.filePath += '.json'
           fs.writeFileSync(result.filePath, str)
           this.$message.success('导出收藏成功')
         }
@@ -391,23 +528,31 @@ export default {
     importFavoritesEvent () {
       const options = {
         filters: [
-          { name: 'JSON file', extensions: ['json'] },
-          { name: 'Normal text file', extensions: ['txt'] },
-          { name: 'All types', extensions: ['*'] }
+          { name: 'JSON file', extensions: ['json'] }
         ],
         properties: ['openFile', 'multiSelections']
       }
       remote.dialog.showOpenDialog(options).then(result => {
         if (!result.canceled) {
-          var starList = Array.from(this.list)
-          var id = this.list.length + 1
+          const starList = Array.from(this.list)
+          let id = this.list.length + 1
           result.filePaths.forEach(file => {
-            var str = fs.readFileSync(file)
+            const str = fs.readFileSync(file)
             const json = JSON.parse(str)
             json.reverse().forEach(ele => {
               const starExists = starList.some(x => x.key === ele.key && x.ids === ele.ids)
               if (!starExists) {
-                var doc = {
+                const newDetail = {
+                  director: ele.director,
+                  actor: ele.actor,
+                  type: ele.type,
+                  area: ele.area,
+                  lang: ele.lang,
+                  year: ele.year,
+                  last: ele.last,
+                  note: ele.note
+                }
+                const doc = {
                   id: id,
                   key: ele.key,
                   ids: ele.ids,
@@ -416,16 +561,7 @@ export default {
                   hasUpdate: ele.hasUpdate,
                   index: ele.index,
                   rate: ele.rate,
-                  detail: ele.detail === undefined ? {
-                    director: ele.director,
-                    actor: ele.actor,
-                    type: ele.type,
-                    area: ele.area,
-                    lang: ele.lang,
-                    year: ele.year,
-                    last: ele.last,
-                    note: ele.note
-                  } : ele.detail
+                  detail: ele.detail === undefined ? newDetail : ele.detail
                 }
                 id += 1
                 starList.push(doc)
@@ -441,11 +577,6 @@ export default {
         this.$message.error(err)
       })
     },
-    clearFavoritesEvent () {
-      star.clear().then(e => {
-        this.getFavorites()
-      })
-    },
     syncTableData () {
       if (this.$refs.starTable.tableData && this.$refs.starTable.tableData.length === this.list.length) {
         this.list = this.$refs.starTable.tableData
@@ -454,7 +585,7 @@ export default {
     updateDatabase () {
       this.syncTableData()
       star.clear().then(res => {
-        var id = this.list.length
+        let id = this.list.length
         this.list.forEach(ele => {
           ele.id = id
           id -= 1
@@ -463,6 +594,7 @@ export default {
       })
     },
     rowDrop () {
+      if (!document.getElementById('star-table')) return
       const tbody = document.getElementById('star-table').querySelector('.el-table__body-wrapper tbody')
       const _this = this
       Sortable.create(tbody, {
@@ -473,33 +605,28 @@ export default {
         }
       })
     },
-    getViewMode () {
-      setting.find().then(res => {
-        this.viewMode = res.starViewMode
-      })
-    },
-    updateViewMode () {
-      setting.find().then(res => {
-        res.starViewMode = this.viewMode
-        setting.update(res)
-      })
+    showShiftPrompt () {
+      if (this.setting.shiftTooltipLimitTimes === undefined) this.setting.shiftTooltipLimitTimes = 5
+      if (this.setting.shiftTooltipLimitTimes) {
+        this.$message.info('多选时支持shift快捷键')
+        this.setting.shiftTooltipLimitTimes--
+        setting.find().then(res => {
+          res.shiftTooltipLimitTimes = this.setting.shiftTooltipLimitTimes
+          setting.update(res)
+        })
+      }
     }
   },
   created () {
     this.getFavorites()
-    this.getViewMode()
   },
   mounted () {
-    this.rowDrop()
-    window.addEventListener('resize', () => {
-      if (this.$refs.starWaterfall && this.view === 'Star') {
-        this.$refs.starWaterfall.resize()
-        this.$refs.starWaterfall.refresh()
-        setTimeout(() => {
-          this.$refs.starWaterfall.refresh()
-        }, 500)
-      }
-    }, false)
+    if (this.setting.starViewMode === 'table') setTimeout(() => { this.rowDrop() }, 100)
+    addEventListener('keydown', code => { if (code.keyCode === 16) this.shiftDown = true })
+    addEventListener('keyup', code => { if (code.keyCode === 16) this.shiftDown = false })
+    addEventListener('resize', () => {
+      setTimeout(() => { if (this.$refs.starWaterfall) this.$refs.starWaterfall.resize() }, 500)
+    })
   }
 }
 </script>
